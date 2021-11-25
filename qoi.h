@@ -32,8 +32,8 @@ QOI encodes and decodes images in a lossless format. An encoded QOI image is
 usually around 10--30% larger than a decently optimized PNG image.
 
 QOI outperforms simpler PNG encoders in compression ratio and performance. QOI
-images are typically 20% smaller than PNGs written with stbi_image but 10% 
-larger than with libpng. Encoding is 25-50x faster and decoding is 3-4x faster 
+images are typically 20% smaller than PNGs written with stbi_image but 10%
+larger than with libpng. Encoding is 25-50x faster and decoding is 3-4x faster
 than stbi_image or libpng.
 
 
@@ -93,7 +93,7 @@ and decoder. Each pixel that is seen by the encoder and decoder is put into this
 array at the position (r^g^b^a) % 64. In the encoder, if the pixel value at this
 index matches the current pixel, this index position is written to the stream.
 
-Each chunk starts with a 2, 3 or 4 bit tag, followed by a number of data bits. 
+Each chunk starts with a 2, 3 or 4 bit tag, followed by a number of data bits.
 The bit length of chunks is divisible by 8 - i.e. all chunks are byte aligned.
 
 QOI_INDEX {
@@ -119,10 +119,10 @@ QOI_DIFF8 {
 }
 
 QOI_DIFF16 {
-	u8 tag  :  3;   // b110
-	u8 dr   :  5;   // 5-bit   red channel difference: -15..16
-	u8 dg   :  4;   // 4-bit green channel difference:  -7.. 8
-	u8 db   :  4;   // 4-bit  blue channel difference:  -7.. 8
+	u8 tag  :  4;   // b1100
+	u8 dr   :  4;   // r-bit   red channel difference:  -7..8
+	u8 dg   :  4;   // 4-bit green channel difference:  -7..8
+	u8 db   :  4;   // 4-bit  blue channel difference:  -7..8
 }
 
 QOI_DIFF24 {
@@ -145,8 +145,10 @@ QOI_COLOR {
 	u8 a;           // alpha value if has_a == 1: 0..255
 }
 
+NOTE: b1101 is reserved for future use.
+
 The byte stream is padded with 4 zero bytes. Size the longest chunk we can
-encounter is 5 bytes (QOI_COLOR with RGBA set), with this padding we just have 
+encounter is 5 bytes (QOI_COLOR with RGBA set), with this padding we just have
 to check for an overrun once per decode loop iteration.
 
 */
@@ -165,18 +167,18 @@ extern "C" {
 #ifndef QOI_NO_STDIO
 
 // Encode raw RGB or RGBA pixels into a QOI image write it to the file system.
-// w and h denote the the width and height of the pixel data. channels must be 
+// w and h denote the the width and height of the pixel data. channels must be
 // either 3 for RGB data or 4 for RGBA.
-// The function returns 0 on failure (invalid parameters, or fopen or malloc 
+// The function returns 0 on failure (invalid parameters, or fopen or malloc
 // failed) or the number of bytes written on success.
 
 int qoi_write(const char *filename, const void *data, int w, int h, int channels);
 
 
-// Read and decode a QOI image from the file system into either raw RGB 
+// Read and decode a QOI image from the file system into either raw RGB
 // (channels=3) or RGBA (channels=4) pixel data.
 // The function either returns NULL on failure (invalid data, or malloc or fopen
-// failed) or a pointer to the decoded pixels. On success out_w and out_h will 
+// failed) or a pointer to the decoded pixels. On success out_w and out_h will
 // be set to the width and height of the decoded image.
 // The returned pixel data should be free()d after use.
 
@@ -186,9 +188,9 @@ void *qoi_read(const char *filename, int *out_w, int *out_h, int channels);
 
 
 // Encode raw RGB or RGBA pixels into a QOI image in memory. w and h denote the
-// width and height of the pixel data. channels must be either 3 for RGB data 
+// width and height of the pixel data. channels must be either 3 for RGB data
 // or 4 for RGBA.
-// The function either returns NULL on failure (invalid parameters or malloc 
+// The function either returns NULL on failure (invalid parameters or malloc
 // failed) or a pointer to the encoded data on success. On success the out_len
 // is set to the size in bytes of the encoded data.
 // The returned qoi data should be free()d after user.
@@ -196,9 +198,9 @@ void *qoi_read(const char *filename, int *out_w, int *out_h, int channels);
 void *qoi_encode(const void *data, int w, int h, int channels, int *out_len);
 
 
-// Decode a QOI image from memory into either raw RGB (channels=3) or RGBA 
+// Decode a QOI image from memory into either raw RGB (channels=3) or RGBA
 // (channels=4) pixel data.
-// The function either returns NULL on failure (invalid parameters or malloc 
+// The function either returns NULL on failure (invalid parameters or malloc
 // failed) or a pointer to the decoded pixels. On success out_w and out_h will
 // be set to the width and height of the decoded image.
 // The returned pixel data should be free()d after use.
@@ -226,9 +228,10 @@ void *qoi_decode(const void *data, int size, int *out_w, int *out_h, int channel
 #define QOI_RUN_8   0x40 // 010xxxxx
 #define QOI_RUN_16  0x60 // 011xxxxx
 #define QOI_DIFF_8  0x80 // 10xxxxxx
-#define QOI_DIFF_16 0xc0 // 110xxxxx
+#define QOI_DIFF_16 0xc0 // 1100xxxx
 #define QOI_DIFF_24 0xe0 // 1110xxxx
 #define QOI_COLOR   0xf0 // 1111xxxx
+                         // 1101xxxx is reserved for future use
 
 #define QOI_MASK_2  0xc0 // 11000000
 #define QOI_MASK_3  0xe0 // 11100000
@@ -333,7 +336,7 @@ void *qoi_encode(const void *data, int w, int h, int channels, int *out_len) {
 				int va = px.rgba.a - px_prev.rgba.a;
 
 				if (
-					vr > -16 && vr < 17 && vg > -16 && vg < 17 && 
+					vr > -16 && vr < 17 && vg > -16 && vg < 17 &&
 					vb > -16 && vb < 17 && va > -16 && va < 17
 				) {
 					if (
@@ -343,10 +346,10 @@ void *qoi_encode(const void *data, int w, int h, int channels, int *out_len) {
 						bytes[p++] = QOI_DIFF_8 | ((vr + 1) << 4) | (vg + 1) << 2 | (vb + 1);
 					}
 					else if (
-						va == 0 && vr > -16 && vr < 17 && 
+						va == 0 && vr > -8 && vr < 9 &&
 						vg > -8 && vg < 9 && vb > -8 && vb < 9
 					) {
-						bytes[p++] = QOI_DIFF_16 | (vr + 15);
+						bytes[p++] = QOI_DIFF_16 | (vr + 7);
 						bytes[p++] = ((vg + 7) << 4) | (vb + 7);
 					}
 					else {
@@ -426,9 +429,9 @@ void *qoi_decode(const void *data, int size, int *out_w, int *out_h, int channel
 				px.rgba.g += ((b1 >> 2) & 0x03) - 1;
 				px.rgba.b += ( b1       & 0x03) - 1;
 			}
-			else if ((b1 & QOI_MASK_3) == QOI_DIFF_16) {
+			else if ((b1 & QOI_MASK_4) == QOI_DIFF_16) {
 				int b2 = bytes[p++];
-				px.rgba.r += (b1 & 0x1f) - 15;
+				px.rgba.r += (b1 & 0x0f) - 7;
 				px.rgba.g += (b2 >> 4) - 7;
 				px.rgba.b += (b2 & 0x0f) - 7;
 			}
@@ -450,7 +453,7 @@ void *qoi_decode(const void *data, int size, int *out_w, int *out_h, int channel
 			index[QOI_COLOR_HASH(px) % 64] = px;
 		}
 
-		if (channels == 4) { 
+		if (channels == 4) {
 			*(qoi_rgba_t*)(pixels + px_pos) = px;
 		}
 		else {
